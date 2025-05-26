@@ -1,15 +1,16 @@
 # PDF Embeddings Semantic Search and Conversational Chat
 
-This project enables efficient **semantic search** and **conversational querying** across multiple PDF documents using OpenAI embeddings, FAISS vector search, and LangChain for continuous conversational context.
+This project enables efficient **semantic search** and interactive **conversational querying** across multiple PDF documents using OpenAI embeddings, FAISS vector search, and LangChain with continuous conversation support.
 
 ---
 
 ## 🚀 Features
 
-- **Semantic Search** across multiple PDFs
-- **Conversational Chat** with memory and context management
-- **Local Embeddings Storage** for efficient offline access using FAISS
-- Interactive interface via Jupyter Notebooks or VS Code
+- **Semantic Search** across multiple PDF documents
+- **Conversational Chat** with memory and contextual continuity
+- **Local Embeddings Storage** using FAISS for efficient offline access
+- Interactive notebooks via Jupyter or VS Code
+- Automatic support for **mathematical and physics calculations** within conversations
 
 ---
 
@@ -17,84 +18,104 @@ This project enables efficient **semantic search** and **conversational querying
 
 ### 1. Conda Environment
 
-Create and activate the `llm_embeddings` Conda environment (Python 3.11 recommended):
+Create and activate the Conda environment (`llm_embeddings`):
 
-```bash
+```
 conda create -n llm_embeddings python=3.11 -y
 conda activate llm_embeddings
 ```
 
 ### 2. Install Dependencies
 
-Install required Python packages:
+Install necessary packages:
 
-```bash
-pip install openai PyMuPDF faiss-cpu python-dotenv langchain langchain-openai langchain-community
+```
+pip install openai PyMuPDF faiss-cpu numpy python-dotenv langchain langchain-openai langchain-community langchain-experimental
 ```
 
-### 3. OpenAI API Key
+### 3. Configure OpenAI API Key
 
-Create a `.env` file in your project directory containing your OpenAI API key:
+Create a `.env` file containing your OpenAI API key:
 
-```bash
+```
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-## Project Structure
+---
 
-```bash
+## 📂 Project Structure
+
+```
 project_folder/
-├── build.ipynb              # Process PDFs and generate embeddings
-├── query.ipynb              # Semantic search and query interface
-├── chat.ipynb               # Interactive conversational chat notebook
-├── chunks.db                # SQLite database with PDF text chunks
-└── faiss_index_directory/   # FAISS vectorstore (embeddings and metadata)
+├── build.ipynb              # Process PDFs, generate embeddings, store in FAISS and SQLite
+├── query.ipynb              # Semantic query interface
+├── chat.ipynb               # Conversational chat notebook (with calculation support)
+├── chunks.db                # SQLite database containing PDF chunks
+└── faiss_index_directory/   # FAISS vectorstore for embeddings
     ├── index.faiss
     └── index.pkl
 ```
 
-## ▶️ Usage
-### Step 1: Prepare PDF Documents
+---
 
-In build.ipynb, update the list of PDFs you wish to process:
+## ▶️ Usage
+
+### Step 1: Prepare PDFs
+
+In `build.ipynb`, define your PDF folders:
 
 ```python
-pdf_files = ["document1.pdf", "document2.pdf"]  # Replace with your PDFs
+root_folders = ["./pdf_folder1", "./pdf_folder2"]  # Update paths accordingly
 ```
 
-### Step 2: Generate Embeddings
+### Step 2: Generate Embeddings and Chunks
+
 Run cells sequentially in `build.ipynb` to:
 
-- Extract text from PDFs.
-- Create and store embeddings locally using FAISS.
-- Save document chunks and metadata.
+- Extract and chunk texts from PDFs
+- Store chunks in SQLite (`chunks.db`)
+- Generate and save embeddings using FAISS
 
-### Step 3: Query Documents
-For quick semantic queries, use `query.ipynb`.
+### Step 3: Perform Queries
 
-For conversational interactions with memory context, use `chat.ipynb`.
+Use `query.ipynb` for direct semantic searches.
 
-## 💬 Conversational Chat with Memory
-In `chat.ipynb`, engage in continuous dialogue:
+Example:
 
 ```python
-chat("Explain cosmological redshift.")
-
-# Follow-up questions use previous context automatically:
-chat("What does the variable 'z' represent?")
+query = "Explain cosmological redshift."
 ```
 
-Clear conversation memory if needed:
+### Step 4: Conversational Chat (with Calculations)
+
+Use `chat.ipynb` for interactive conversations and automatic calculations.
+
+Example conversation:
+
+```python
+chat("""
+what is cosmoligical redshift?
+""")
+
+# Conversational follow-up:
+chat("explain what z is?")
+```
+
+Clear memory if needed:
 
 ```python
 memory.clear()
 ```
 
+---
+
 ## 📚 References
 
-* [Video Tutorial](https://www.youtube.com/watch?v=h0DHDp1FbmQ)
-* [LangChain Ask A Book Example](https://github.com/gkamradt/langchain-tutorials/blob/main/data_generation/Ask%20A%20Book%20Questions.ipynb)
+- [Semantic Search with LangChain & OpenAI](https://www.youtube.com/watch?v=h0DHDp1FbmQ)
+- [LangChain "Ask A Book" Example](https://github.com/gkamradt/langchain-tutorials/blob/main/data_generation/Ask%20A%20Book%20Questions.ipynb)
 
-## License
+---
 
-This project is provided as-is for educational purposes. Modify and extend as needed!
+## 📜 License
+
+Provided **as-is** for educational purposes. Feel free to modify, extend, and share!
