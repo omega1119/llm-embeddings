@@ -88,7 +88,10 @@ pip install -e .
 Open `notebooks/build.ipynb` and update PDF folders:
 
 ```python
-root_folders = ["./pdf_folder1", "./pdf_folder2"]  # Adjust paths accordingly
+build_faiss_index(
+        ["./pdf_folder1", "./pdf_folder2"], 
+        chunk_size=800
+    )
 ```
 
 Run all cells sequentially to:
