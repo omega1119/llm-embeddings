@@ -174,3 +174,4 @@ cython_debug/
 .pypirc
 chunks.db
 .DS_Store
+faiss_index_directory/
