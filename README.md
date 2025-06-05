@@ -34,7 +34,16 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-### 3. Configure OpenAI API Key
+### 3. Install tesseract
+
+Install necessary packages using brew:
+
+```bash
+brew install tesseract
+sudo apt-get install tesseract-ocr
+```
+
+### 4. Configure OpenAI API Key
 
 Create a `.env` file containing your OpenAI API key:
 

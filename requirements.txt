@@ -8,3 +8,8 @@ langchain-openai
 langchain-community
 langchain-experimental
 nbformat
+pymupdf
+pytesseract
+pillow
+python-pptx
+python-docx

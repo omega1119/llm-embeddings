@@ -1,7 +1,11 @@
 import os
 import shutil
 import fitz
-import glob
+from PIL import Image
+import pytesseract
+import io
+from pptx import Presentation
+from docx import Document
 import nbformat
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -11,7 +15,24 @@ from .database import store_chunks, init_db
 
 def extract_pdf_text(pdf_path):
     doc = fitz.open(pdf_path)
-    return ''.join(page.get_text() for page in doc)
+    pdf_text = ''
+
+    for page_num, page in enumerate(doc, start=1):
+        text = page.get_text()
+        if text.strip():
+            pdf_text += text + '\n'
+        else:
+            print(f"[OCR] Page {page_num} contains no selectable text. Running OCR explicitly.")
+            images = page.get_images(full=True)
+            for img_index, img in enumerate(images, start=1):
+                xref = img[0]
+                base_image = doc.extract_image(xref)
+                image = Image.open(io.BytesIO(base_image["image"]))
+                ocr_text = pytesseract.image_to_string(image, lang='eng', config='--psm 6')
+                pdf_text += ocr_text + '\n'
+                print(f"[OCR] Extracted text explicitly from image {img_index} on page {page_num}")
+
+    return pdf_text
 
 def extract_python_text(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -27,63 +48,118 @@ def extract_notebook_text(notebook_path):
             text += cell.source + '\n\n'
     return text
 
+def extract_text_from_pdf_images(pdf_path):
+    doc = fitz.open(pdf_path)
+    full_text = ''
+
+    for page_num, page in enumerate(doc):
+        images = page.get_images(full=True)
+        print(f"Found {len(images)} images on page {page_num + 1}")
+
+        for img_index, img in enumerate(images, start=1):
+            xref = img[0]
+            base_image = doc.extract_image(xref)
+            image_bytes = base_image["image"]
+            image_ext = base_image["ext"]
+
+            image = Image.open(io.BytesIO(image_bytes))
+
+            # OCR explicitly with PyTesseract
+            ocr_text = pytesseract.image_to_string(image)
+            full_text += ocr_text + '\n'
+
+    return full_text
+
+def extract_pptx_text(pptx_path):
+    prs = Presentation(pptx_path)
+    full_text = ''
+    for slide_number, slide in enumerate(prs.slides, start=1):
+        slide_text = ''
+        for shape in slide.shapes:
+            if hasattr(shape, "text"):
+                slide_text += shape.text + '\n'
+        full_text += slide_text + '\n'
+    return full_text
+
+def extract_docx_text(docx_path):
+    doc = Document(docx_path)
+    full_text = '\n'.join(paragraph.text for paragraph in doc.paragraphs)
+    return full_text
+
+
 def chunk_text(text, chunk_size=500):
     words = text.split()
     return [' '.join(words[i:i+chunk_size]) for i in range(0, len(words), chunk_size)]
 
 def is_excluded(path, exclusions):
-    path_parts = set(os.path.normpath(path).split(os.sep))
-    return any(exclusion in path_parts for exclusion in exclusions)
-
+    path_lower = path.lower()
+    exclusions_lower = [ex.lower() for ex in exclusions]
+    return any(exclusion in path_lower for exclusion in exclusions_lower)
 
 def process_files(root_folders, chunk_size=500, exclusions=None):
     if exclusions is None:
         exclusions = []
 
     chunks, sources = [], []
-    for folder in root_folders:
-        # PDFs
-        pdf_files = glob.glob(os.path.join(folder, "**/*.pdf"), recursive=True)
-        for pdf in pdf_files:
-            if is_excluded(pdf, exclusions):
-                continue
-            text = extract_pdf_text(pdf)
-            pdf_chunks = chunk_text(text, chunk_size=chunk_size)
-            chunks.extend(pdf_chunks)
-            sources.extend([pdf] * len(pdf_chunks))
 
-        # Python scripts
-        py_files = glob.glob(os.path.join(folder, "**/*.py"), recursive=True)
-        for py_file in py_files:
-            if is_excluded(py_file, exclusions):
-                continue
-            text = extract_python_text(py_file)
-            py_chunks = chunk_text(text, chunk_size=chunk_size)
-            chunks.extend(py_chunks)
-            sources.extend([py_file] * len(py_chunks))
+    for root_folder in root_folders:
+        print(f"🔍 Starting recursive iteration from root folder: {root_folder}")
 
-        # Jupyter Notebooks
-        notebook_files = glob.glob(os.path.join(folder, "**/*.ipynb"), recursive=True)
-        for notebook_file in notebook_files:
-            if is_excluded(notebook_file, exclusions):
+        for dirpath, dirnames, filenames in os.walk(root_folder):
+            if is_excluded(dirpath, exclusions):
+                print(f"⛔️ Excluding directory: {dirpath}")
+                dirnames[:] = []
                 continue
-            text = extract_notebook_text(notebook_file)
-            nb_chunks = chunk_text(text, chunk_size=chunk_size)
-            chunks.extend(nb_chunks)
-            sources.extend([notebook_file] * len(nb_chunks))
 
+            print(f"📂 Iterating directory: {dirpath}")
+
+            for filename in filenames:
+                file_path = os.path.join(dirpath, filename)
+
+                if is_excluded(file_path, exclusions):
+                    print(f"⛔️ Excluding file: {file_path}")
+                    continue
+
+                file_ext = filename.lower()
+
+                if file_ext.endswith('.pdf'):
+                    print(f"📄 Processing PDF: {file_path}")
+                    text = extract_pdf_text(file_path)
+
+                elif file_ext.endswith('.py'):
+                    print(f"🐍 Processing Python file: {file_path}")
+                    text = extract_python_text(file_path)
+
+                elif file_ext.endswith('.ipynb'):
+                    print(f"📓 Processing Notebook: {file_path}")
+                    text = extract_notebook_text(file_path)
+
+                elif file_ext.endswith('.pptx'):
+                    print(f"📽️ Processing PowerPoint file: {file_path}")
+                    text = extract_pptx_text(file_path)
+
+                elif file_ext.endswith('.docx'):
+                    print(f"📃 Processing Word document: {file_path}")
+                    text = extract_docx_text(file_path)
+
+                else:
+                    continue
+
+                file_chunks = chunk_text(text, chunk_size=chunk_size)
+                chunks.extend(file_chunks)
+                sources.extend([file_path] * len(file_chunks))
+
+    print(f"✅ Finished processing files. Total chunks created: {len(chunks)}")
     return chunks, sources
 
 def clear_previous_data():
-    # Delete FAISS index directory
     if os.path.exists(FAISS_INDEX_DIR):
         shutil.rmtree(FAISS_INDEX_DIR)
-        print(f"Deleted previous FAISS index at {FAISS_INDEX_DIR}")
+        print(f"🗑️ Deleted previous FAISS index at {FAISS_INDEX_DIR}")
 
-    # Delete SQLite database
     if os.path.exists(DB_NAME):
         os.remove(DB_NAME)
-        print(f"Deleted previous SQLite database at {DB_NAME}")
+        print(f"🗑️ Deleted previous SQLite database at {DB_NAME}")
 
 def build_faiss_index(root_folders, batch_size=100, chunk_size=500, exclusions=None):
     embeddings_model = OpenAIEmbeddings(model=EMBEDDING_MODEL)
@@ -98,7 +174,7 @@ def build_faiss_index(root_folders, batch_size=100, chunk_size=500, exclusions=N
     conn.close()
 
     vectorstore = None
-    for i in tqdm(range(0, len(chunks), batch_size), desc="Creating embeddings"):
+    for i in tqdm(range(0, len(chunks), batch_size), desc="🔧 Creating embeddings"):
         batch_chunks = chunks[i:i+batch_size]
         batch_meta = metadata[i:i+batch_size]
         if vectorstore is None:
@@ -107,3 +183,4 @@ def build_faiss_index(root_folders, batch_size=100, chunk_size=500, exclusions=N
             vectorstore.add_texts(batch_chunks, batch_meta)
 
     vectorstore.save_local(FAISS_INDEX_DIR)
+    print(f"🎉 Embeddings built and saved to {FAISS_INDEX_DIR}")
