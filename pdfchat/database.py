@@ -19,3 +19,16 @@ def store_chunks(conn, chunks, sources):
         zip(sources, chunks)
     )
     conn.commit()
+
+def get_total_chunks(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM chunks")
+    total = cursor.fetchone()[0]
+    return total
+
+def fetch_chunks_batch(conn, offset, limit):
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT chunk, source FROM chunks LIMIT ? OFFSET ?", (limit, offset)
+    )
+    return cursor.fetchall()

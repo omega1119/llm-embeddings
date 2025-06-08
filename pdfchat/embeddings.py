@@ -11,7 +11,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 from tqdm import tqdm
 from .config import EMBEDDING_MODEL, FAISS_INDEX_DIR, DB_NAME
-from .database import store_chunks, init_db
+from .database import store_chunks, init_db, get_total_chunks, fetch_chunks_batch
 
 def extract_pdf_text(pdf_path):
     doc = fitz.open(pdf_path)
@@ -100,7 +100,8 @@ def process_files(root_folders, chunk_size=500, exclusions=None):
     if exclusions is None:
         exclusions = []
 
-    chunks, sources = [], []
+    conn = init_db()
+    total_chunks = 0
 
     for root_folder in root_folders:
         print(f"🔍 Starting recursive iteration from root folder: {root_folder}")
@@ -146,41 +147,61 @@ def process_files(root_folders, chunk_size=500, exclusions=None):
                     continue
 
                 file_chunks = chunk_text(text, chunk_size=chunk_size)
-                chunks.extend(file_chunks)
-                sources.extend([file_path] * len(file_chunks))
+                store_chunks(conn, file_chunks, [file_path] * len(file_chunks))
+                total_chunks += len(file_chunks)
 
-    print(f"✅ Finished processing files. Total chunks created: {len(chunks)}")
-    return chunks, sources
+    conn.close()
+    print(f"✅ Finished processing files. Total chunks stored: {total_chunks}")
 
-def clear_previous_data():
-    if os.path.exists(FAISS_INDEX_DIR):
+def clear_previous_data(clear_faiss=True, clear_db=True):
+    if clear_faiss and os.path.exists(FAISS_INDEX_DIR):
         shutil.rmtree(FAISS_INDEX_DIR)
         print(f"🗑️ Deleted previous FAISS index at {FAISS_INDEX_DIR}")
 
-    if os.path.exists(DB_NAME):
+    if clear_db and os.path.exists(DB_NAME):
         os.remove(DB_NAME)
         print(f"🗑️ Deleted previous SQLite database at {DB_NAME}")
 
-def build_faiss_index(root_folders, batch_size=100, chunk_size=500, exclusions=None):
+def build_faiss_index(
+    root_folders=None, 
+    batch_size=100, 
+    chunk_size=500, 
+    exclusions=None, 
+    rebuild_chunks=True
+):
     embeddings_model = OpenAIEmbeddings(model=EMBEDDING_MODEL)
 
-    clear_previous_data()
-
-    chunks, sources = process_files(root_folders, chunk_size=chunk_size, exclusions=exclusions)
-    metadata = [{"source": s} for s in sources]
+    if rebuild_chunks:
+        if root_folders is None:
+            raise ValueError("root_folders must be provided when rebuilding chunks.")
+        
+        clear_previous_data(clear_faiss=True, clear_db=True)
+        
+        # explicitly process and store chunks in DB immediately
+        process_files(root_folders, chunk_size=chunk_size, exclusions=exclusions)
+    else:
+        clear_previous_data(clear_faiss=True, clear_db=False)
+        print("🔄 Skipping chunk extraction, using existing chunks in database.")
 
     conn = init_db()
-    store_chunks(conn, chunks, sources)
-    conn.close()
+    total_chunks = get_total_chunks(conn)
+
+    if total_chunks == 0:
+        raise ValueError("No chunks found in the database. Cannot build embeddings.")
 
     vectorstore = None
-    for i in tqdm(range(0, len(chunks), batch_size), desc="🔧 Creating embeddings"):
-        batch_chunks = chunks[i:i+batch_size]
-        batch_meta = metadata[i:i+batch_size]
+
+    for offset in tqdm(range(0, total_chunks, batch_size), desc="🔧 Creating embeddings"):
+        batch = fetch_chunks_batch(conn, offset, batch_size)
+        batch_chunks, batch_sources = zip(*batch)
+        batch_meta = [{"source": source} for source in batch_sources]
+
         if vectorstore is None:
             vectorstore = FAISS.from_texts(batch_chunks, embeddings_model, batch_meta)
         else:
             vectorstore.add_texts(batch_chunks, batch_meta)
 
     vectorstore.save_local(FAISS_INDEX_DIR)
+    conn.close()
+
     print(f"🎉 Embeddings built and saved to {FAISS_INDEX_DIR}")
