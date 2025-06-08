@@ -1,22 +1,23 @@
 # PDF Embeddings Semantic Search and Conversational Chat
 
-This project enables efficient **semantic search** and interactive **conversational querying** across multiple PDF documents using OpenAI embeddings, FAISS vector search, and LangChain with continuous conversation support.
+This project enables efficient **semantic search** and interactive **conversational querying** across multiple document formats (PDF, PPTX, DOCX, Python scripts, Jupyter notebooks) using OpenAI embeddings, FAISS vector search, SQLite chunk storage, and LangChain with continuous conversation support.
 
 ---
 
 ## 🚀 Features
 
-- **Semantic Search** across multiple PDF documents
-- **Conversational Chat** with memory and contextual continuity
-- **Local Embeddings Storage** using FAISS for efficient offline access
-- Interactive notebooks via Jupyter or VS Code
-- Automatic support for **mathematical and physics calculations** within conversations
+* **Semantic Search** across PDFs, Word docs, PPTX files, Python scripts, and Jupyter notebooks.
+* **Conversational Chat** with memory and contextual continuity.
+* **Local Embeddings Storage** using FAISS for efficient offline access.
+* Interactive notebooks via Jupyter or VS Code.
+* Automatic support for **mathematical and physics calculations** within conversations.
+* Built-in OCR support for extracting text from images embedded in PDFs.
 
 ---
 
 ## 🛠 Setup Instructions
 
-### 1. Conda Environment
+### 1. Create Conda Environment
 
 Create and activate the Conda environment (`llm_embeddings`):
 
@@ -34,12 +35,17 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-### 3. Install tesseract
+### 3. Install Tesseract OCR (for PDF OCR support)
 
-Install necessary packages using brew:
+* **macOS** (with Homebrew):
 
 ```bash
 brew install tesseract
+```
+
+* **Ubuntu/Linux**:
+
+```bash
 sudo apt-get install tesseract-ocr
 ```
 
@@ -61,11 +67,11 @@ project_folder/
 │   ├── __init__.py
 │   ├── chat.py                    # Conversational chat module
 │   ├── config.py                  # Configuration parameters
-│   ├── database.py                # SQLite chunk storage
+│   ├── database.py                # SQLite chunk storage utilities
 │   └── embeddings.py              # Embeddings and FAISS management
 │
 ├── notebooks/                     # Interactive notebooks
-│   ├── build.ipynb                # Process PDFs and build embeddings
+│   ├── build.ipynb                # Process files and build embeddings
 │   ├── query.ipynb                # Direct semantic querying
 │   └── chat.ipynb                 # Conversational chat interface
 │
@@ -94,20 +100,24 @@ pip install -e .
 
 ### Step 2: Generate Embeddings and Chunks
 
-Open `notebooks/build.ipynb` and update PDF folders:
+Open `notebooks/build.ipynb` and update your file folders explicitly:
 
 ```python
+from pdfchat import build_faiss_index
+
 build_faiss_index(
-        ["./pdf_folder1", "./pdf_folder2"], 
-        chunk_size=800
-    )
+    ["./docs_folder1", "./docs_folder2"], 
+    chunk_size=800,
+    exclusions=["archive", ".git"],
+    rebuild_chunks=True
+)
 ```
 
 Run all cells sequentially to:
 
-- Extract and chunk texts from PDFs
-- Store chunks in SQLite (`chunks.db`)
-- Generate embeddings and store them in FAISS
+* Extract and chunk texts from supported files.
+* Store chunks in SQLite (`chunks.db`).
+* Generate embeddings and store them in FAISS (`faiss_index_directory`).
 
 ### Chunk Size Configuration
 
@@ -119,17 +129,31 @@ Adjust chunk size in your `build_faiss_index` method to optimize embeddings:
 | `500-800` *(default)* | Good balance between context and granularity |
 | `1000-1500`           | More context-rich, larger documents          |
 
-Example:
+Example explicitly:
 
 ```python
-build_faiss_index(["path/to/pdf"], chunk_size=500)
+build_faiss_index(["path/to/documents"], chunk_size=500)
+```
+
+### Batch Size Configuration
+
+Adjust batch size in your `build_faiss_index` method to control how many chunks are processed simultaneously:
+
+| Batch Size (chunks)  | Recommended Use                                |
+| -------------------- | ---------------------------------------------- |
+| `50-100` *(default)* | Good balance of RAM usage and processing speed |
+| `10-50`              | Lower RAM usage, slower processing             |
+| `200-500`            | Higher RAM usage, faster processing            |
+
+Example explicitly:
+
+```python
+build_faiss_index(["path/to/documents"], batch_size=100)
 ```
 
 ### Step 3: Perform Queries
 
-Use `notebooks/query.ipynb` for direct semantic searches.
-
-Example query:
+Use `notebooks/query.ipynb` for direct semantic searches:
 
 ```python
 query = "Explain cosmological redshift."
@@ -137,9 +161,7 @@ query = "Explain cosmological redshift."
 
 ### Step 4: Conversational Chat with Calculations
 
-Open `notebooks/chat.ipynb`:
-
-Set up the chat explicitly:
+Open `notebooks/chat.ipynb` and explicitly set up the chat system:
 
 ```python
 from pdfchat import setup_chat, chat, clear_memory
@@ -151,12 +173,10 @@ Start interactive conversations:
 
 ```python
 chat("What is cosmological redshift?")
-
-# Conversational follow-up:
 chat("Explain what 'z' represents.")
 ```
 
-Clear conversation memory when needed:
+Clear conversation memory explicitly when needed:
 
 ```python
 clear_memory()
@@ -164,14 +184,46 @@ clear_memory()
 
 ---
 
-## 📚 References
+## 🔄 Rebuilding Indexes and Chunks
 
-- [Semantic Search with LangChain & OpenAI](https://www.youtube.com/watch?v=h0DHDp1FbmQ)
-- [LangChain "Ask A Book" Example](https://github.com/gkamradt/langchain-tutorials/blob/main/data_generation/Ask%20A%20Book%20Questions.ipynb)
-- [Sample PDFs (py-pdf)](https://github.com/py-pdf/sample-files)
-- [Sample PDFs (tpn)](https://github.com/tpn/pdfs)
-- [PDF Cabinet of Horrors](https://github.com/openpreserve/format-corpus/tree/master/pdfCabinetOfHorrors)
-- [Format Corpus Sample Files](https://github.com/openpreserve/format-corpus)
+### Full rebuild (chunks + FAISS index):
+
+```python
+build_faiss_index(
+    ["./docs_folder"], 
+    rebuild_chunks=True
+)
+```
+
+### Rebuild only FAISS index (from existing chunks.db):
+
+```python
+build_faiss_index(rebuild_chunks=False)
+```
+
+---
+
+## 📚 Supported File Types
+
+| File type | Extraction method                  | Library              |
+| --------- | ---------------------------------- | -------------------- |
+| `.pdf`    | Text extraction + OCR (for images) | PyMuPDF, PyTesseract |
+| `.py`     | Direct text extraction             | Built-in Python      |
+| `.ipynb`  | Notebook cell extraction           | nbformat             |
+| `.pptx`   | Slide text extraction              | python-pptx          |
+| `.docx`   | Paragraph text extraction          | python-docx          |
+
+---
+
+## 📚 Useful References
+
+* [Semantic Search with LangChain & OpenAI](https://www.youtube.com/watch?v=h0DHDp1FbmQ)
+* [LangChain "Ask A Book" Example](https://github.com/gkamradt/langchain-tutorials/blob/main/data_generation/Ask%20A%20Book%20Questions.ipynb)
+* [PyMuPDF Documentation](https://pymupdf.readthedocs.io/)
+* [PyTesseract OCR](https://github.com/madmaze/pytesseract)
+* [python-pptx](https://python-pptx.readthedocs.io/)
+* [python-docx](https://python-docx.readthedocs.io/)
+* [Sample PDFs (py-pdf)](https://github.com/py-pdf/sample-files)
 
 ---
 
