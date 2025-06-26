@@ -13,3 +13,9 @@ pytesseract
 pillow
 python-pptx
 python-docx
+odfpy
+openpyxl
+scipy
+pandas
+matplotlib
+scikit-learn

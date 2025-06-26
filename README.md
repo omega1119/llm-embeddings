@@ -1,17 +1,18 @@
 # PDF Embeddings Semantic Search and Conversational Chat
 
-This project enables efficient **semantic search** and interactive **conversational querying** across multiple document formats (PDF, PPTX, DOCX, Python scripts, Jupyter notebooks) using OpenAI embeddings, FAISS vector search, SQLite chunk storage, and LangChain with continuous conversation support.
+This project enables efficient **semantic search** and interactive **conversational querying** across multiple document formats (PDF, PPTX, DOCX, Python scripts, Jupyter notebooks) using **OpenAI embeddings**, **FAISS vector search**, **SQLite chunk storage**, and **LangChain** with continuous conversation support. It leverages **Retrieval-Augmented Generation (RAG)**, where the conversational agent is augmented with context retrieved from a file store to provide intelligent, context-aware responses.
 
 ---
 
 ## 🚀 Features
 
 * **Semantic Search** across PDFs, Word docs, PPTX files, Python scripts, and Jupyter notebooks.
-* **Conversational Chat** with memory and contextual continuity.
-* **Local Embeddings Storage** using FAISS for efficient offline access.
-* Interactive notebooks via Jupyter or VS Code.
-* Automatic support for **mathematical and physics calculations** within conversations.
-* Built-in OCR support for extracting text from images embedded in PDFs.
+* **Conversational Chat** with memory and contextual continuity, enabling natural conversations.
+* **Local Embeddings Storage** using **FAISS** for efficient offline access to semantic vectors.
+* Integrates **Retrieval-Augmented Generation (RAG)** to combine document retrieval with conversational responses powered by **OpenAI GPT models**.
+* **Mathematical and Physics Calculations**: Built-in support for complex calculations and formulas within conversations.
+* **OCR Support**: Automatically extracts text from images embedded in PDFs using **Tesseract OCR**.
+* **LangChain Compatibility**: Seamlessly integrate with **LangChain** for advanced document query handling and chat applications.
 
 ---
 
